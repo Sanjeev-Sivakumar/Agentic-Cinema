@@ -184,6 +184,194 @@ code, pre, .font-mono, [class*="font-mono"] {
   animation: live-pulse 2s infinite ease-in-out;
 }
 
+/* Report page: match the standalone HTML report's editorial visual language. */
+.report-page {
+  --report-paper: #f5f3ee;
+  --report-surface: #fffdf9;
+  --report-ink: #17212b;
+  --report-muted: #68727b;
+  --report-line: #d9d6cf;
+  --report-navy: #18344a;
+  --report-amber: #b56a24;
+  --report-red: #a94336;
+  color: var(--report-ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.report-page > .bg-\[\#0e1320\],
+.report-page .bg-\[\#0e1320\] {
+  background: var(--report-surface) !important;
+  border-color: var(--report-line) !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 2px rgba(23, 33, 43, 0.04) !important;
+}
+
+.report-page > .bg-\[\#0e1320\]:first-child {
+  background: var(--report-navy) !important;
+  border-color: var(--report-navy) !important;
+  color: #fffdf9;
+  padding: 2.5rem 2.875rem !important;
+  box-shadow: none !important;
+}
+
+.report-page > .bg-\[\#0e1320\]:first-child h1 {
+  color: #fffdf9 !important;
+  font-family: Georgia, 'Times New Roman', serif !important;
+  font-size: clamp(1.8rem, 4vw, 3rem) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.08;
+  text-transform: none !important;
+}
+
+.report-page > .bg-\[\#0e1320\]:first-child .text-slate-400,
+.report-page > .bg-\[\#0e1320\]:first-child .text-slate-300 {
+  color: #c8d2d8 !important;
+}
+
+.report-page > .bg-\[\#0e1320\]:first-child .text-slate-300 strong {
+  color: #fffdf9 !important;
+}
+
+.report-page .bg-amber-950\/30 {
+  background: #fff7e7 !important;
+  border-color: #e7cfaa !important;
+  border-left-color: var(--report-amber) !important;
+  border-radius: 2px !important;
+  color: #604b35 !important;
+}
+
+.report-page .bg-red-950\/40,
+.report-page .bg-red-950\/20 {
+  background: #fbeceb !important;
+  border-color: #e4b8b2 !important;
+  border-radius: 2px !important;
+  color: #71332d !important;
+}
+
+.report-page .bg-purple-950\/20 {
+  background: #fff7e7 !important;
+  border-color: #e7cfaa !important;
+  border-left-color: var(--report-amber) !important;
+  border-radius: 2px !important;
+  color: #604b35 !important;
+}
+
+.report-page .grid-cols-2 > div,
+.report-page .grid-cols-1.md\:grid-cols-2 > div {
+  background: var(--report-surface) !important;
+  border-color: var(--report-line) !important;
+  border-radius: 2px !important;
+}
+
+.report-page .grid-cols-2 > div:nth-child(2) {
+  border-left-color: var(--report-amber) !important;
+}
+
+.report-page .grid-cols-2 > div:nth-child(3) {
+  border-left-color: var(--report-red) !important;
+}
+
+.report-page .text-slate-100,
+.report-page .text-slate-200,
+.report-page .text-slate-300 {
+  color: var(--report-ink) !important;
+}
+
+.report-page .text-slate-400,
+.report-page .text-slate-500 {
+  color: var(--report-muted) !important;
+}
+
+.report-page .text-purple-200,
+.report-page .text-purple-300,
+.report-page .text-purple-400 {
+  color: var(--report-amber) !important;
+}
+
+.report-page .text-amber-200,
+.report-page .text-amber-300,
+.report-page .text-amber-400 {
+  color: var(--report-amber) !important;
+}
+
+.report-page .border-\[\#1e293b\],
+.report-page .border-b.border-\[\#1e293b\],
+.report-page .divide-\[\#1e293b\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--report-line) !important;
+}
+
+.report-page table {
+  color: var(--report-ink);
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.report-page table thead {
+  background: #edf0f1 !important;
+  color: var(--report-navy) !important;
+}
+
+.report-page table thead th {
+  color: var(--report-navy) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.report-page table tbody tr:hover {
+  background: #f4f1ea !important;
+}
+
+.report-page input {
+  background: var(--report-surface) !important;
+  border-color: var(--report-line) !important;
+  color: var(--report-ink) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  border-radius: 2px !important;
+}
+
+.report-page button,
+.report-page a {
+  border-radius: 2px;
+}
+
+.report-page .bg-amber-500 {
+  background: var(--report-amber) !important;
+}
+
+.report-page .bg-indigo-600\/20 {
+  background: #e7edf1 !important;
+  border-color: #b6c6cf !important;
+  color: var(--report-navy) !important;
+}
+
+.report-page > .fixed {
+  background: rgba(23, 33, 43, 0.62) !important;
+}
+
+.report-page > .fixed > div {
+  background: var(--report-surface) !important;
+  border-color: var(--report-line) !important;
+  border-radius: 2px !important;
+  color: var(--report-ink);
+}
+
+.report-page > .fixed .bg-\[\#121826\],
+.report-page > .fixed .bg-\[\#0b0f19\] {
+  background: #f8f7f3 !important;
+  border-color: var(--report-line) !important;
+}
+
+@media (max-width: 720px) {
+  .report-page > .bg-\[\#0e1320\]:first-child {
+    padding: 1.75rem 1.25rem !important;
+  }
+
+  .report-page table {
+    min-width: 720px;
+  }
+}
+
 @keyframes live-pulse {
   0%, 100% {
     opacity: 1;

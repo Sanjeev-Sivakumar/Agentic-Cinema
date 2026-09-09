@@ -128,7 +128,7 @@ export const Reports: React.FC<ReportsProps> = ({ currentProduction, entities })
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="report-page space-y-6 max-w-6xl mx-auto pb-12">
       {/* Top Header Card */}
       <div className="bg-[#0e1320] border border-[#1e293b] rounded-lg p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

@@ -63,3 +63,12 @@ app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
 # Register all API routes
 app.include_router(api_router)
 
+from fastapi.responses import HTMLResponse
+from app.ui import get_judge_ui_html
+
+@app.get("/", response_class=HTMLResponse, tags=["ui"])
+async def root_judge_ui():
+    """Serve the interactive judge clearance evaluation UI."""
+    return HTMLResponse(content=get_judge_ui_html(), status_code=200)
+
+

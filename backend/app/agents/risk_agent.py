@@ -205,10 +205,10 @@ class RiskAssessmentAgent:
             ),
         )
 
-        total_count = len(sorted_entities)
+        priority_sample = [f"{e.name}({e.classification.value if hasattr(e.classification, 'value') else e.classification})" for e in sorted_entities[:5]]
         logger.info(
             f"[RiskAssessmentAgent] Starting batch risk assessment for {total_count} entities "
-            f"(Priority order: {[f'{e.name}({e.classification.value if hasattr(e.classification, 'value') else e.classification})' for e in sorted_entities[:5]]})"
+            f"(Priority order: {priority_sample})"
         )
 
         # 2. Emit Started Event

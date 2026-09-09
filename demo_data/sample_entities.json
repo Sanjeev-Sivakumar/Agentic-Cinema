@@ -1,0 +1,65 @@
+[
+  {
+    "id": "ent_01",
+    "name": "Starlight Roast Coffee",
+    "entity_type": "BRAND",
+    "source": "VISUAL",
+    "confidence": 0.96,
+    "scene": 1,
+    "timestamp": 14.7,
+    "context": "Clear logo badge on the front counter espresso cup held by barista.",
+    "frame_path": "frames/scene01_00147.jpg",
+    "clearance_type": "TRADEMARK",
+    "risk_level": "HIGH",
+    "risk_score": 82,
+    "rights_holder": "Starlight Global Beverage Corp",
+    "evidence": {
+      "ocr_text": "STARLIGHT ROAST",
+      "bounding_box": [0.42, 0.55, 0.15, 0.2]
+    },
+    "verification_status": "CONFIRMED",
+    "resolution_status": "BLUR_REQUIRED"
+  },
+  {
+    "id": "ent_02",
+    "name": "Geometric Symphony #4",
+    "entity_type": "ARTWORK",
+    "source": "VISUAL",
+    "confidence": 0.91,
+    "scene": 1,
+    "timestamp": 22.3,
+    "context": "Framed canvas painting prominently visible behind Arjun's booth.",
+    "frame_path": "frames/scene01_00223.jpg",
+    "clearance_type": "COPYRIGHT",
+    "risk_level": "MEDIUM",
+    "risk_score": 58,
+    "rights_holder": "Estate of Elena Vance",
+    "evidence": {
+      "ocr_text": null,
+      "bounding_box": [0.7, 0.15, 0.25, 0.4]
+    },
+    "verification_status": "UNVERIFIED",
+    "resolution_status": "LICENSE_REQUIRED"
+  },
+  {
+    "id": "ent_03",
+    "name": "Apex Smartphone X10",
+    "entity_type": "PRODUCT",
+    "source": "BOTH",
+    "confidence": 0.88,
+    "scene": 1,
+    "timestamp": 28.5,
+    "context": "Distinct triple-lens camera module and emblem visible in Arjun's hand.",
+    "frame_path": "frames/scene01_00285.jpg",
+    "clearance_type": "TRADE_DRESS",
+    "risk_level": "LOW",
+    "risk_score": 25,
+    "rights_holder": "Apex Tech International",
+    "evidence": {
+      "ocr_text": "APEX",
+      "bounding_box": [0.48, 0.62, 0.08, 0.12]
+    },
+    "verification_status": "CONFIRMED",
+    "resolution_status": "FAIR_USE_ARGUMENT"
+  }
+]

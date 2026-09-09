@@ -8,7 +8,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080 \
     APP_ENV=production \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    YOLO_CONFIG_DIR=/tmp/Ultralytics \
+    TORCH_HOME=/tmp/torch
 
 # Install essential runtime packages for OpenCV, FFmpeg, and EasyOCR/Torch
 RUN apt-get update && apt-get install -y --no-install-recommends \

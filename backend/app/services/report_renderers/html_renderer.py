@@ -403,12 +403,37 @@ def render_html_report(report: ReportResult) -> str:
 
     generated_date_str = report.generated_at.strftime("%B %d, %Y - %H:%M:%S UTC")
 
-    # Metrics
-    vis_count = report.classification_counts.get("VISUAL_ONLY", 0)
-    high_risk_count = report.risk_distribution.get("HIGH", 0)
-    contradicted_count = report.verification_distribution.get("CONTRADICTED", 0)
-    license_req_count = report.resolution_distribution.get("LICENSE_REQUIRED", 0)
-    remove_count = report.resolution_distribution.get("REMOVE_OR_REPLACE", 0)
+    # Visual-Only Spotlight Section
+    visual_only_spotlight_html = ""
+    if report.visual_only_findings:
+        visual_only_spotlight_html = f"""
+    <div class="section-card" style="border-color: #6d28d9;">
+      <div class="section-header">
+        <div class="section-title" style="color: #c4b5fd;">&#x1F50D; Visual-Only Exposure Spotlight ({len(report.visual_only_findings)})</div>
+        <span class="section-count" style="background: #4c1d95; color: #ddd6fe;">Highest Surprise Liability</span>
+      </div>
+      <div class="spotlight-banner">
+        <strong>Critical Studio Advisory:</strong> These entities were discovered in video footage (props, signage, wardrobe, incidental set decoration) but possess <em>zero trace</em> in the script. They represent unbudgeted and unscripted trademark/copyright liabilities.
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Entity</th>
+              <th>Classification</th>
+              <th>Risk Assessment</th>
+              <th>Verification</th>
+              <th>Action & Priority</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visual_only_rows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    """
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -822,34 +847,7 @@ def render_html_report(report: ReportResult) -> str:
     </div>
 
     <!-- Visual-Only Exposure Spotlight -->
-    {f"""
-    <div class="section-card" style="border-color: #6d28d9;">
-      <div class="section-header">
-        <div class="section-title" style="color: #c4b5fd;">&#x1F50D; Visual-Only Exposure Spotlight ({len(report.visual_only_findings)})</div>
-        <span class="section-count" style="background: #4c1d95; color: #ddd6fe;">Highest Surprise Liability</span>
-      </div>
-      <div class="spotlight-banner">
-        <strong>Critical Studio Advisory:</strong> These entities were discovered in video footage (props, signage, wardrobe, incidental set decoration) but possess <em>zero trace</em> in the script. They represent unbudgeted and unscripted trademark/copyright liabilities.
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Entity</th>
-              <th>Classification</th>
-              <th>Risk Assessment</th>
-              <th>Verification</th>
-              <th>Action & Priority</th>
-              <th>Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visual_only_rows}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    """ if report.visual_only_findings else ""}
+    {visual_only_spotlight_html}
 
     <!-- Priority Clearance Findings -->
     <div class="section-card">

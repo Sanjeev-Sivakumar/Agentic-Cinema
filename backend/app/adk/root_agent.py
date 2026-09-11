@@ -9,6 +9,7 @@ from app.models.orchestration import (
     WorkflowStatus,
     OrchestrationResult,
 )
+from app.services.storage import cleanup_production_temp
 from app.adk.context import WorkflowContext
 from app.adk.callbacks import WorkflowCallbacks
 from app.adk.tools.entity_tools import merge_entities_tool
@@ -102,7 +103,7 @@ class RootOrchestrator:
 
             # Handle screenplay handoff
             if isinstance(results[0], Exception):
-                logger.error(f"[RootOrchestrator] Screenplay branch crashed: {results[0]}")
+                logger.error(f"[RootOrchestrator] Screenplay branch crashed: {results[0]}", exc_info=True)
                 screenplay_handoff = AgentHandoff(
                     agent="screenplay",
                     status=AgentStatus.FAILED,
@@ -113,7 +114,7 @@ class RootOrchestrator:
 
             # Handle visual handoff
             if isinstance(results[1], Exception):
-                logger.error(f"[RootOrchestrator] Visual branch crashed: {results[1]}")
+                logger.error(f"[RootOrchestrator] Visual branch crashed: {results[1]}", exc_info=True)
                 visual_handoff = AgentHandoff(
                     agent="visual",
                     status=AgentStatus.FAILED,
@@ -124,6 +125,22 @@ class RootOrchestrator:
 
             context.state.update_agent_status("screenplay", screenplay_handoff.status, duration=screenplay_handoff.duration)
             context.state.update_agent_status("visual", visual_handoff.status, duration=visual_handoff.duration)
+
+            for err in screenplay_handoff.errors:
+                context.state.record_error(f"[Screenplay] {err}")
+            for err in visual_handoff.errors:
+                context.state.record_error(f"[Visual] {err}")
+
+            # Check if all active input branches failed
+            both_failed = (
+                screenplay_handoff.status == AgentStatus.FAILED and visual_handoff.status == AgentStatus.FAILED
+            )
+            if both_failed:
+                error_msg = "Both Screenplay and Visual ingestion branches failed. Aborting orchestration."
+                logger.error(f"[RootOrchestrator] {error_msg}")
+                await self.report_agent.run(context)
+                await WorkflowCallbacks.on_orchestration_fail(context, error_msg)
+                return context.state.to_orchestration_result()
 
             # =========================================================================
             # STAGE 3: ENTITY MERGE (Synchronization Barrier)
@@ -136,17 +153,35 @@ class RootOrchestrator:
                 context, "ROOT AGENT", "merge_entities_tool", merge_result, merge_duration
             )
 
+            if merge_result.get("status") == "FAILED":
+                context.state.record_error(f"Entity merge failed: {merge_result.get('error')}")
+
             # Re-read entities from repository to ensure all branches are synchronized
             all_entities = await context.entity_repo.list_by_production(context.production_id)
             context.state.entity_ids = [e.id for e in all_entities]
 
-            # If no entities at all were found, we can still generate a clean report
+            # If no entities at all were found, check if this was due to branch failures
             if not all_entities:
+                has_branch_failure = (
+                    screenplay_handoff.status == AgentStatus.FAILED or visual_handoff.status == AgentStatus.FAILED
+                )
+                if has_branch_failure:
+                    error_msg = "No entities detected and one or more input branches failed. Marking workflow as FAILED."
+                    logger.error(f"[RootOrchestrator] {error_msg}")
+                    context.state.record_error(error_msg)
+                    await self.report_agent.run(context)
+                    await WorkflowCallbacks.on_orchestration_fail(context, error_msg)
+                    return context.state.to_orchestration_result()
+
+                logger.warning("[RootOrchestrator] No clearance entities detected across inputs. Generating clean report.")
                 context.state.record_warning("No clearance entities detected from screenplay or video footage.")
                 context.state.research_status = AgentStatus.SKIPPED
                 context.state.risk_status = AgentStatus.SKIPPED
                 context.state.verification_status = AgentStatus.SKIPPED
                 context.state.resolution_status = AgentStatus.SKIPPED
+                context.state.exposure_status = AgentStatus.SKIPPED
+                context.state.outreach_status = AgentStatus.SKIPPED
+                context.state.remediation_status = AgentStatus.SKIPPED
 
                 # Generate report with zero entities
                 await self.report_agent.run(context)
@@ -237,7 +272,7 @@ class RootOrchestrator:
                 context.state.record_error(err)
 
             # Determine final workflow status:
-            # PARTIAL if any stage failed but report generated; FAILED if report failed; COMPLETED otherwise
+            # PARTIAL if any non-critical stage failed but report generated; FAILED if report failed; COMPLETED otherwise
             has_failures = bool(context.state.get_failed_agents()) or bool(context.state.get_blocked_agents())
             if report_handoff.status == AgentStatus.FAILED:
                 final_status = WorkflowStatus.FAILED
@@ -253,3 +288,10 @@ class RootOrchestrator:
             logger.error(f"[RootOrchestrator] Fatal error during orchestration: {e}", exc_info=True)
             await WorkflowCallbacks.on_orchestration_fail(context, str(e))
             return context.state.to_orchestration_result()
+
+        finally:
+            # Clean up temporary materialization directory for this production
+            try:
+                cleanup_production_temp(context.production_id)
+            except Exception as ce:
+                logger.warning(f"[RootOrchestrator] Temp cleanup warning for {context.production_id}: {ce}")

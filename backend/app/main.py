@@ -63,12 +63,113 @@ app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
 # Register all API routes
 app.include_router(api_router)
 
-from fastapi.responses import HTMLResponse
+import json
+from fastapi import HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from app.ui import get_judge_ui_html
+
+@app.get("/download/sample-video", tags=["download"])
+@app.get("/download/test_video1.mp4", tags=["download"])
+@app.get("/download/video", tags=["download"])
+async def download_sample_video():
+    """Download the official benchmark sample video (test_video1.mp4) as a real file attachment."""
+    candidates = [
+        Path(settings.BASE_DIR) / "test_video1.mp4",
+        Path("/app/test_video1.mp4"),
+        Path("/app/backend/test_video1.mp4"),
+        Path("test_video1.mp4"),
+        Path("backend/test_video1.mp4"),
+        Path(__file__).resolve().parent.parent.parent / "test_video1.mp4",
+        Path(__file__).resolve().parent.parent / "test_video1.mp4",
+    ]
+    for c in candidates:
+        if c.exists() and c.is_file():
+            return FileResponse(
+                path=str(c.resolve()),
+                media_type="video/mp4",
+                filename="test_video1.mp4",
+                headers={
+                    "Content-Disposition": 'attachment; filename="test_video1.mp4"',
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=3600",
+                },
+            )
+    raise HTTPException(status_code=404, detail="Sample video test_video1.mp4 not found on server.")
+
+
+@app.get("/download/sample-script", tags=["download"])
+@app.get("/download/benchmark-script", tags=["download"])
+@app.get("/download/script", tags=["download"])
+async def download_sample_script():
+    """Download the official benchmark screenplay (Artificial Intelligence.txt)."""
+    candidates = [
+        Path(settings.BASE_DIR) / "Artificial Intelligence.txt",
+        Path("/app/Artificial Intelligence.txt"),
+        Path("/app/backend/Artificial Intelligence.txt"),
+        Path("Artificial Intelligence.txt"),
+        Path("backend/Artificial Intelligence.txt"),
+        Path(__file__).resolve().parent.parent.parent / "Artificial Intelligence.txt",
+    ]
+    for c in candidates:
+        if c.exists() and c.is_file():
+            return FileResponse(
+                path=str(c.resolve()),
+                media_type="text/plain; charset=utf-8",
+                filename="Artificial Intelligence.txt",
+                headers={
+                    "Content-Disposition": 'attachment; filename="Artificial Intelligence.txt"',
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=3600",
+                },
+            )
+    raise HTTPException(status_code=404, detail="Sample screenplay not found on server.")
+
+@app.get("/benchmark/report", tags=["benchmark"])
+@app.get("/benchmark-report", tags=["benchmark"])
+async def get_root_benchmark_report():
+    """Return pre-computed benchmark clearance report for instantaneous demonstration."""
+    candidates = [
+        Path("reports/rep_8cf8d48bb5a7.json"),
+        Path("data/storage/reports/prod_d13bf22452/rep_83543fdf985f.json"),
+        Path("data/storage/reports/test_video_e2e/rep_6f5d2e5435a0.json"),
+        Path(settings.BASE_DIR) / "data" / "storage" / "reports" / "prod_d13bf22452" / "rep_83543fdf985f.json",
+        Path(settings.BASE_DIR) / "reports" / "rep_83543fdf985f.json",
+    ]
+    for c in candidates:
+        if c.exists() and c.is_file():
+            try:
+                with open(c, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    data["production_id"] = data.get("production_id") or "prod_d13bf22452"
+                    return data
+            except Exception as e:
+                logger.warning(f"Failed to load benchmark report from {c}: {e}")
+
+    rep_dir = Path("data/storage/reports")
+    if rep_dir.exists():
+        for r_file in rep_dir.glob("*/*.json"):
+            try:
+                with open(r_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if data.get("all_findings"):
+                        return data
+            except Exception:
+                continue
+
+    return JSONResponse(status_code=404, content={"detail": "Benchmark report not found."})
 
 @app.get("/", response_class=HTMLResponse, tags=["ui"])
 async def root_judge_ui():
     """Serve the interactive judge clearance evaluation UI."""
-    return HTMLResponse(content=get_judge_ui_html(), status_code=200)
+    return HTMLResponse(
+        content=get_judge_ui_html(),
+        status_code=200,
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
 
 

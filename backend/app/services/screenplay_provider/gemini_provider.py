@@ -56,7 +56,7 @@ class GeminiScreenplayProvider(ScreenplayExtractionProvider):
         self.model = model or getattr(
             settings,
             "GEMINI_SCREENPLAY_MODEL",
-            getattr(settings, "GEMINI_MODEL", "gemini-3.6-flash"),
+            getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash"),
         )
         self._client = None
         self._init_client()

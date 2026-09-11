@@ -9,6 +9,7 @@ from app.models.events import EventType, PipelineStage, ProcessingEvent
 from app.services.screenplay_comparison import screenplay_comparison_service
 from app.services.clearance_filter import is_clearance_relevant
 from app.services.entity_normalization import entity_normalization_service
+from app.services.storage import materialize_asset_to_local
 from app.adk.context import WorkflowContext
 
 
@@ -50,8 +51,15 @@ async def merge_entities_tool(
     start_time = time.perf_counter()
     try:
         raw_entities: List[Entity] = await context.entity_repo.list_by_production(context.production_id)
+        logger.info(
+            f"[ADK] Stage 4 ENTITY_MERGE started (production_id={context.production_id}, "
+            f"raw_entities_count={len(raw_entities)})"
+        )
         if not raw_entities:
             duration = time.perf_counter() - start_time
+            logger.info(
+                f"[ADK] Stage 4 ENTITY_MERGE completed entities=0 (duration_ms={int(duration * 1000)})"
+            )
             return {
                 "status": "COMPLETED",
                 "total_entities": 0,
@@ -152,18 +160,15 @@ async def merge_entities_tool(
             elif getattr(prod, "metadata", None) and prod.metadata.get("script_text"):
                 script_text = prod.metadata["script_text"]
             elif getattr(prod, "script_path", None):
-                candidates = [
-                    Path(prod.script_path),
-                    Path(context.settings.LOCAL_STORAGE_DIR) / prod.script_path,
-                    Path(context.settings.BASE_DIR) / prod.script_path,
-                ]
-                for c in candidates:
-                    if c.exists() and c.is_file():
-                        try:
-                            script_text = c.read_text(encoding="utf-8")
-                            break
-                        except Exception:
-                            pass
+                try:
+                    mat_path = await materialize_asset_to_local(
+                        path_or_uri=prod.script_path,
+                        production_id=context.production_id,
+                        category="screenplay",
+                    )
+                    script_text = mat_path.read_text(encoding="utf-8")
+                except Exception as read_err:
+                    logger.debug(f"[ADK EntityMerge] Could not read script for comparison: {read_err}")
 
         footage_entities = [
             e for e in merged_canonical
@@ -216,7 +221,11 @@ async def merge_entities_tool(
         )
 
         duration = time.perf_counter() - start_time
-        logger.info(f"[ADK EntityMerge] Completed merge: {len(refreshed_entities)} total ({both_count} BOTH, {visual_only_count} VISUAL_ONLY, {script_only_count} SCRIPT_ONLY)")
+        duration_ms = int(duration * 1000)
+        logger.info(
+            f"[ADK] Stage 4 ENTITY_MERGE completed entities={len(refreshed_entities)} "
+            f"(both={both_count}, visual_only={visual_only_count}, script_only={script_only_count}, duration_ms={duration_ms})"
+        )
         return {
             "status": "COMPLETED",
             "total_entities": len(refreshed_entities),
@@ -229,7 +238,8 @@ async def merge_entities_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK EntityMergeTool] Entity merge failed: {e}", exc_info=True)
+        duration_ms = int(duration * 1000)
+        logger.error(f"[ADK] Stage 4 ENTITY_MERGE failed: {e} (duration_ms={duration_ms})", exc_info=True)
         context.state.record_error(f"Entity merge failed: {str(e)}")
         return {
             "status": "FAILED",

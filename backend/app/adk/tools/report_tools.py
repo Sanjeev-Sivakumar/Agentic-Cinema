@@ -18,6 +18,11 @@ async def generate_report_tool(
     start_time = time.perf_counter()
     report_formats = formats or ["JSON", "HTML", "PDF"]
 
+    logger.info(
+        f"[ADK] Stage 11 REPORT_GENERATION started for production {context.production_id} | "
+        f"Formats: {report_formats}"
+    )
+
     try:
         from app.models.analysis import AnalysisJob
         from app.models.report import ReportFormat
@@ -87,6 +92,10 @@ async def generate_report_tool(
         )
 
         duration = time.perf_counter() - start_time
+        logger.info(
+            f"[ADK] Stage 11 REPORT_GENERATION completed in {duration:.2f}s | "
+            f"Report ID: {report.report_id} | Findings: {len(report.all_findings)} | Paths: {report.format_paths}"
+        )
         return {
             "status": "COMPLETED",
             "report_id": report.report_id,
@@ -98,7 +107,7 @@ async def generate_report_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK ReportTool] Report generation failed: {e}", exc_info=True)
+        logger.error(f"[ADK Stage 11] Report generation failed after {duration:.2f}s: {e}", exc_info=True)
         context.state.record_error(f"Report generation failed: {str(e)}")
         return {
             "status": "FAILED",

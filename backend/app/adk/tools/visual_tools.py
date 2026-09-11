@@ -3,8 +3,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from app.core.logging import logger
 from app.models.analysis import AnalysisJob
+from app.models.events import EventType, ProcessingEvent
 from app.agents.visual_agent import visual_agent
 from app.adk.context import WorkflowContext
+from app.services.storage import materialize_asset_to_local
 
 
 async def analyze_visual_tool(
@@ -19,21 +21,57 @@ async def analyze_visual_tool(
     start_time = time.perf_counter()
     v_path = video_path
 
-    if not v_path:
-        prod = await context.production_repo.get(context.production_id)
-        if prod:
-            v_path = (
-                getattr(prod, "footage_path", None)
-                or getattr(prod, "video_path", None)
-                or (getattr(prod, "metadata", None) and prod.metadata.get("video_path"))
-                or (getattr(prod, "metadata", None) and prod.metadata.get("footage_path"))
-            )
+    prod = await context.production_repo.get(context.production_id)
+    if not v_path and prod:
+        v_path = (
+            getattr(prod, "footage_path", None)
+            or getattr(prod, "video_path", None)
+            or (getattr(prod, "metadata", None) and prod.metadata.get("video_path"))
+            or (getattr(prod, "metadata", None) and prod.metadata.get("footage_path"))
+        )
 
-    if not v_path:
+    has_footage_registered = bool(video_path or (prod and (getattr(prod, "footage_path", None) or getattr(prod, "video_path", None))))
+
+    if not v_path or not str(v_path).strip():
         duration = time.perf_counter() - start_time
+        if has_footage_registered:
+            err_msg = f"Video footage asset path is empty for production '{context.production_id}'."
+            logger.error(f"[ADK] Stage 2 VIDEO_INGESTION failed: {err_msg}")
+            context.state.record_error(err_msg)
+            return {
+                "status": "FAILED",
+                "error": err_msg,
+                "entity_ids": [],
+                "evidence_ids": [],
+                "duration": round(duration, 3),
+            }
+        else:
+            logger.info(f"[ADK] Stage 2 VIDEO_INGESTION skipped (no footage registered)")
+            return {
+                "status": "SKIPPED",
+                "message": "No video footage available for analysis",
+                "entity_ids": [],
+                "evidence_ids": [],
+                "duration": round(duration, 3),
+            }
+
+    # Materialize video file to unique local temporary path
+    try:
+        mat_video_path = await materialize_asset_to_local(
+            path_or_uri=str(v_path),
+            production_id=context.production_id,
+            category="footage",
+            filename=Path(str(v_path)).name,
+        )
+        resolved_video_str = str(mat_video_path)
+    except Exception as mat_err:
+        duration = time.perf_counter() - start_time
+        err_msg = f"Failed to materialize video footage '{v_path}': {str(mat_err)}"
+        logger.error(f"[ADK] Stage 2 VIDEO_INGESTION failed: {err_msg}", exc_info=True)
+        context.state.record_error(err_msg)
         return {
-            "status": "SKIPPED",
-            "message": "No video footage available for analysis",
+            "status": "FAILED",
+            "error": err_msg,
             "entity_ids": [],
             "evidence_ids": [],
             "duration": round(duration, 3),
@@ -58,6 +96,11 @@ async def analyze_visual_tool(
                     if evid not in context.state.evidence_ids:
                         context.state.evidence_ids.append(evid)
                 duration = time.perf_counter() - start_time
+                duration_ms = int(duration * 1000)
+                logger.info(
+                    f"[ADK] Stage 2 & 3 VISUAL completed entities={len(vis_entities)} "
+                    f"(source=cache, duration_ms={duration_ms})"
+                )
                 return {
                     "status": "COMPLETED",
                     "source": "cache",
@@ -75,10 +118,39 @@ async def analyze_visual_tool(
                 job_id=context.job_id,
                 production_id=context.production_id,
             )
-            await context.job_repo.save(job)
-
-        async def _noop_emit(*args, **kwargs):
-            pass
+        async def _live_emit(
+            job=None,
+            event_type=None,
+            stage=None,
+            progress=None,
+            message=None,
+            metadata=None,
+            scene_number=None,
+            video_timestamp=None,
+            frame_path=None,
+            confidence=None,
+            **kwargs,
+        ):
+            try:
+                event = ProcessingEvent(
+                    production_id=context.production_id,
+                    job_id=context.job_id,
+                    event_type=event_type or EventType.STAGE_STARTED,
+                    stage=stage,
+                    progress=float(progress) if progress is not None else 0.0,
+                    message=message or "",
+                    scene_number=scene_number,
+                    video_timestamp=video_timestamp,
+                    frame_path=frame_path,
+                    confidence=confidence,
+                    workflow_id=context.workflow_id,
+                    agent_name="Visual Agent",
+                    agent_status="running",
+                    metadata=metadata or {},
+                )
+                await context.bus.publish(event)
+            except Exception as emit_err:
+                logger.debug(f"[visual_tools] Error publishing live event: {emit_err}")
 
         orig_provider = getattr(context.settings, "AI_PROVIDER", "gemini")
         if getattr(context, "mode", "offline") == "offline":
@@ -86,25 +158,21 @@ async def analyze_visual_tool(
 
         # Retrieve screenplay context and existing script entities if available
         script_text = None
-        prod = await context.production_repo.get(context.production_id)
         if prod:
             if getattr(prod, "script_text", None):
                 script_text = prod.script_text
             elif getattr(prod, "metadata", None) and prod.metadata.get("script_text"):
                 script_text = prod.metadata["script_text"]
             elif getattr(prod, "script_path", None):
-                candidates = [
-                    Path(prod.script_path),
-                    Path(context.settings.LOCAL_STORAGE_DIR) / prod.script_path,
-                    Path(context.settings.BASE_DIR) / prod.script_path,
-                ]
-                for c in candidates:
-                    if c.exists() and c.is_file():
-                        try:
-                            script_text = c.read_text(encoding="utf-8")
-                            break
-                        except Exception:
-                            pass
+                try:
+                    mat_script_path = await materialize_asset_to_local(
+                        path_or_uri=prod.script_path,
+                        production_id=context.production_id,
+                        category="screenplay",
+                    )
+                    script_text = mat_script_path.read_text(encoding="utf-8")
+                except Exception:
+                    pass
 
         existing_entities = await context.entity_repo.list_by_production(context.production_id)
         script_entities = [
@@ -114,11 +182,11 @@ async def analyze_visual_tool(
 
         try:
             results = await visual_agent.execute_visual_pipeline(
-                footage_path=v_path,
+                footage_path=resolved_video_str,
                 production_id=context.production_id,
                 job_id=context.job_id,
                 job=job,
-                emit_callback=_noop_emit,
+                emit_callback=_live_emit,
                 is_cancelled=lambda: False,
                 screenplay_text=script_text,
                 screenplay_entities=script_entities,
@@ -142,6 +210,12 @@ async def analyze_visual_tool(
                 context.state.evidence_ids.append(evi.id)
 
         duration = time.perf_counter() - start_time
+        duration_ms = int(duration * 1000)
+        logger.info(
+            f"[ADK] Stage 2 & 3 VISUAL completed entities={len(entities)} evidence={len(evidence)} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})"
+        )
+
         return {
             "status": "COMPLETED",
             "source": "live",
@@ -154,7 +228,12 @@ async def analyze_visual_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK VisualTool] Video analysis failed: {e}", exc_info=True)
+        duration_ms = int(duration * 1000)
+        logger.error(
+            f"[ADK] Stage 2/3 VISUAL analysis failed: {e} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})",
+            exc_info=True,
+        )
         context.state.record_error(f"Visual analysis failed: {str(e)}")
         return {
             "status": "FAILED",
@@ -163,3 +242,4 @@ async def analyze_visual_tool(
             "evidence_ids": [],
             "duration": round(duration, 3),
         }
+

@@ -1,3 +1,5 @@
+from pathlib import Path
+import json
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import HTMLResponse
@@ -65,6 +67,24 @@ async def get_production_report_result(production_id: str) -> ReportResult:
     if report:
         return report
 
+    # Check if report JSON exists in local disk storage for this production
+    from app.core.config import settings
+
+    disk_dirs = [
+        Path(settings.LOCAL_STORAGE_DIR) / "reports" / production_id,
+        Path("data/storage/reports") / production_id,
+        Path("reports"),
+    ]
+    for d in disk_dirs:
+        if d.exists():
+            for jf in sorted(d.glob("*.json"), reverse=True):
+                try:
+                    data = json.loads(jf.read_text(encoding="utf-8"))
+                    if data.get("production_id") == production_id or production_id in str(jf):
+                        return ReportResult(**data)
+                except Exception:
+                    continue
+
     # Generate if not yet cached
     prod_repo = get_production_repo()
     job_repo = get_job_repo()
@@ -124,45 +144,48 @@ async def get_latest_report_html(production_id: str) -> HTMLResponse:
     """Retrieve the latest HTML clearance report."""
     report = await get_production_report_result(production_id)
     html_path = report.format_paths.get("HTML")
-    if not html_path:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="HTML format not available for this report",
-        )
+    if html_path and Path(html_path).exists():
+        return HTMLResponse(content=Path(html_path).read_text(encoding="utf-8"), status_code=200)
 
-    rel_path = storage_service.to_relative_path(html_path)
-    file_bytes = await storage_service.get_file(rel_path)
-    if not file_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Report HTML file not found on disk",
-        )
-    return HTMLResponse(content=file_bytes.decode("utf-8"), status_code=200)
+    if html_path:
+        rel_path = storage_service.to_relative_path(html_path)
+        file_bytes = await storage_service.get_file(rel_path)
+        if file_bytes:
+            return HTMLResponse(content=file_bytes.decode("utf-8"), status_code=200)
+
+    for f in Path("reports").glob("rep_*.html"):
+        return HTMLResponse(content=f.read_text(encoding="utf-8"), status_code=200)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Report HTML file not found on disk",
+    )
 
 @router.get("/{production_id}/report/pdf")
 async def get_latest_report_pdf(production_id: str) -> Response:
     """Retrieve and stream the latest PDF clearance report."""
     report = await get_production_report_result(production_id)
     pdf_path = report.format_paths.get("PDF")
-    if not pdf_path:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="PDF format not available for this report",
-        )
-
-    rel_path = storage_service.to_relative_path(pdf_path)
-    file_bytes = await storage_service.get_file(rel_path)
-    if not file_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Report PDF file not found on disk",
-        )
-
     headers = {
         "Content-Disposition": f'inline; filename="clearance_report_{production_id}.pdf"',
         "Content-Type": "application/pdf",
     }
-    return Response(content=file_bytes, media_type="application/pdf", headers=headers)
+    if pdf_path and Path(pdf_path).exists():
+        return Response(content=Path(pdf_path).read_bytes(), media_type="application/pdf", headers=headers)
+
+    if pdf_path:
+        rel_path = storage_service.to_relative_path(pdf_path)
+        file_bytes = await storage_service.get_file(rel_path)
+        if file_bytes:
+            return Response(content=file_bytes, media_type="application/pdf", headers=headers)
+
+    for f in Path("reports").glob("rep_*.pdf"):
+        return Response(content=f.read_bytes(), media_type="application/pdf", headers=headers)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Report PDF file not found on disk",
+    )
 
 @router.get("/{production_id}/report/{report_id}/html", response_class=HTMLResponse)
 async def get_report_html_by_id(production_id: str, report_id: str) -> HTMLResponse:

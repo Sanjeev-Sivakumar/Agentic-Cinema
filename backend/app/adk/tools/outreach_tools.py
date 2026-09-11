@@ -19,7 +19,12 @@ async def draft_clearance_outreach_tool(
     """
     Generates formal clearance permission request drafts for entities requiring review.
     """
-    logger.info(f"[ADK OutreachTool] Generating clearance outreach drafts for production '{context.production_id}'")
+    import time
+    start_time = time.perf_counter()
+    logger.info(
+        f"[ADK] Stage 10 CLEARANCE_OUTREACH started (production_id='{context.production_id}', "
+        f"target_entity_ids={len(entity_ids) if entity_ids else 'all'})"
+    )
     entities = await context.entity_repo.list_by_production(context.production_id)
     if entity_ids:
         entities = [e for e in entities if e.id in entity_ids]
@@ -61,8 +66,15 @@ async def draft_clearance_outreach_tool(
             message=f"Drafted clearance permission letter for '{entity.name}' -> {draft.rights_holder} (Gmail Draft: {draft.gmail_draft_id or 'Stored'})",
         )
 
-    logger.info(f"[ADK OutreachTool] Drafted {len(drafts)} clearance outreach packages.")
+    duration = time.perf_counter() - start_time
+    duration_ms = int(duration * 1000)
+    logger.info(
+        f"[ADK] Stage 10 CLEARANCE_OUTREACH completed drafted={len(drafts)} "
+        f"(production_id={context.production_id}, duration_ms={duration_ms})"
+    )
     return {
+        "status": "COMPLETED",
         "count": len(drafts),
         "drafts": drafts,
     }
+

@@ -16,6 +16,10 @@ async def verify_entities_tool(
     and screenplay alignment. Detects contradictions and updates state.
     """
     start_time = time.perf_counter()
+    logger.info(
+        f"[ADK] Stage 7 ADVERSARIAL_VERIFICATION started (production_id={context.production_id}, "
+        f"target_entity_ids={len(entity_ids) if entity_ids else 'all'})"
+    )
     try:
         results: List[VerificationResult] = await verification_agent.verify_production(
             production_id=context.production_id,
@@ -33,6 +37,11 @@ async def verify_entities_tool(
         contradiction_count = sum(1 for r in results if getattr(r, 'contradiction_detected', False) or bool(getattr(r, 'contradictions', [])))
 
         duration = time.perf_counter() - start_time
+        duration_ms = int(duration * 1000)
+        logger.info(
+            f"[ADK] Stage 7 ADVERSARIAL_VERIFICATION completed verified={len(results)} "
+            f"(confirmed={confirmed_count}, review={review_count}, rejected={rejected_count}, contradictions={contradiction_count}, duration_ms={duration_ms})"
+        )
         return {
             "status": "COMPLETED",
             "total_verified": len(results),
@@ -46,7 +55,12 @@ async def verify_entities_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK VerificationTool] Verification failed: {e}", exc_info=True)
+        duration_ms = int(duration * 1000)
+        logger.error(
+            f"[ADK] Stage 7 ADVERSARIAL_VERIFICATION failed: {e} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})",
+            exc_info=True,
+        )
         context.state.record_error(f"Verification failed: {str(e)}")
         return {
             "status": "FAILED",

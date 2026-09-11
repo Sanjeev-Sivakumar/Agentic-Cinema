@@ -17,6 +17,10 @@ async def assess_risk_tool(
     enriches entities, persists risk assessments, and updates workflow state.
     """
     start_time = time.perf_counter()
+    logger.info(
+        f"[ADK] Stage 6 RISK_ASSESSMENT started (production_id={context.production_id}, "
+        f"target_entity_ids={len(entity_ids) if entity_ids else 'all'})"
+    )
     try:
         assess_fn = getattr(risk_agent, "assess_production", getattr(risk_agent, "assess_production_risk", None))
         assessments: List[RiskAssessment] = await assess_fn(
@@ -35,6 +39,11 @@ async def assess_risk_tool(
         unknown_count = sum(1 for a in assessments if a.risk_level == RiskLevel.UNKNOWN)
 
         duration = time.perf_counter() - start_time
+        duration_ms = int(duration * 1000)
+        logger.info(
+            f"[ADK] Stage 6 RISK_ASSESSMENT completed assessed={len(assessments)} "
+            f"(high={high_count}, medium={medium_count}, low={low_count}, unknown={unknown_count}, duration_ms={duration_ms})"
+        )
         return {
             "status": "COMPLETED",
             "total_assessed": len(assessments),
@@ -48,7 +57,12 @@ async def assess_risk_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK RiskTool] Risk assessment failed: {e}", exc_info=True)
+        duration_ms = int(duration * 1000)
+        logger.error(
+            f"[ADK] Stage 6 RISK_ASSESSMENT failed: {e} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})",
+            exc_info=True,
+        )
         context.state.record_error(f"Risk assessment failed: {str(e)}")
         return {
             "status": "FAILED",

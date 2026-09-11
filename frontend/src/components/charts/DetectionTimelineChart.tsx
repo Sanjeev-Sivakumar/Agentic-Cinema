@@ -46,16 +46,16 @@ export const DetectionTimelineChart: React.FC<DetectionTimelineChartProps> = ({
         <svg className="w-full h-full" viewBox="0 0 600 140" preserveAspectRatio="none">
           {/* Y-axis grid lines with confidence percentages */}
           <line x1="30" y1="20" x2="590" y2="20" stroke="#1e293b" strokeDasharray="3 3" />
-          <text x="5" y="23" fill="#64748b" fontSize="7" fontFamily="JetBrains Mono">100%</text>
+          <text x="5" y="23" fill="#64748b" fontSize="7" fontFamily="DM Mono">100%</text>
 
           <line x1="30" y1="55" x2="590" y2="55" stroke="#1e293b" strokeDasharray="3 3" />
-          <text x="10" y="58" fill="#64748b" fontSize="7" fontFamily="JetBrains Mono">75%</text>
+          <text x="10" y="58" fill="#64748b" fontSize="7" fontFamily="DM Mono">75%</text>
 
           <line x1="30" y1="90" x2="590" y2="90" stroke="#1e293b" strokeDasharray="3 3" />
-          <text x="10" y="93" fill="#64748b" fontSize="7" fontFamily="JetBrains Mono">50%</text>
+          <text x="10" y="93" fill="#64748b" fontSize="7" fontFamily="DM Mono">50%</text>
 
           <line x1="30" y1="125" x2="590" y2="125" stroke="#334155" />
-          <text x="15" y="128" fill="#64748b" fontSize="7" fontFamily="JetBrains Mono">0%</text>
+          <text x="15" y="128" fill="#64748b" fontSize="7" fontFamily="DM Mono">0%</text>
 
           {/* Time ticks */}
           {[0, 0.25, 0.5, 0.75, 1.0].map((frac) => {
@@ -64,7 +64,7 @@ export const DetectionTimelineChart: React.FC<DetectionTimelineChartProps> = ({
             return (
               <g key={frac}>
                 <line x1={x} y1="120" x2={x} y2="125" stroke="#475569" />
-                <text x={x} y="136" fill="#64748b" fontSize="8" fontFamily="JetBrains Mono" textAnchor="middle">
+                <text x={x} y="136" fill="#64748b" fontSize="8" fontFamily="DM Mono" textAnchor="middle">
                   {t}s
                 </text>
               </g>
@@ -111,7 +111,7 @@ export const DetectionTimelineChart: React.FC<DetectionTimelineChartProps> = ({
                   y={y - 8}
                   fill="#f8fafc"
                   fontSize="8"
-                  fontFamily="JetBrains Mono"
+                  fontFamily="DM Mono"
                   textAnchor="middle"
                   className="pointer-events-none font-semibold"
                 >

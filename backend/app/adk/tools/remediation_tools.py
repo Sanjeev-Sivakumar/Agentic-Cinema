@@ -22,7 +22,12 @@ async def generate_visual_remediation_tool(
     """
     Generates non-destructive visual remediation proposals for visual entities.
     """
-    logger.info(f"[ADK RemediationTool] Evaluating visual remediation proposals for production '{context.production_id}'")
+    import time
+    start_time = time.perf_counter()
+    logger.info(
+        f"[ADK] Stage 11 VISUAL_REMEDIATION started (production_id='{context.production_id}', "
+        f"target_entity_ids={len(entity_ids) if entity_ids else 'all'})"
+    )
     entities = await context.entity_repo.list_by_production(context.production_id)
     if entity_ids:
         entities = [e for e in entities if e.id in entity_ids]
@@ -69,8 +74,15 @@ async def generate_visual_remediation_tool(
                 message=f"Generated visual remediation proposal for '{entity.name}' ({proposal.remediation_type.value}): {proposal.proposed_frame_path}",
             )
 
-    logger.info(f"[ADK RemediationTool] Generated {len(proposals)} visual remediation proposals.")
+    duration = time.perf_counter() - start_time
+    duration_ms = int(duration * 1000)
+    logger.info(
+        f"[ADK] Stage 11 VISUAL_REMEDIATION completed proposals={len(proposals)} "
+        f"(production_id={context.production_id}, duration_ms={duration_ms})"
+    )
     return {
+        "status": "COMPLETED",
         "count": len(proposals),
         "proposals": proposals,
     }
+

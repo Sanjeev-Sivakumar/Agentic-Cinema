@@ -29,10 +29,20 @@ COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/backend/requirements.txt
 
-# Copy application source code and models
+# Copy application source code, models, and showcase benchmark footage
 COPY backend /app/backend
+COPY demo_data /app/demo_data
+COPY demo_data /app/backend/demo_data
+COPY ["Artificial Intelligence.txt", "/app/Artificial Intelligence.txt"]
+COPY ["Artificial Intelligence.txt", "/app/backend/Artificial Intelligence.txt"]
 COPY yolov8n.pt /app/yolov8n.pt
 COPY yolov8n.pt /app/backend/yolov8n.pt
+COPY test_video.mp4 /app/test_video.mp4
+COPY test_video.mp4 /app/backend/test_video.mp4
+COPY test_video1.mp4 /app/test_video1.mp4
+COPY test_video1.mp4 /app/backend/test_video1.mp4
+
+
 
 # Ensure local fallback directories exist
 RUN mkdir -p /app/data/storage /app/reports

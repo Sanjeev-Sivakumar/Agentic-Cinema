@@ -26,12 +26,20 @@ async def research_entities_tool(
 
         if not target_entities:
             duration = time.perf_counter() - start_time
+            logger.info(
+                f"[ADK] Stage 5 PARALLEL_RESEARCH skipped (production_id={context.production_id}, no entities)"
+            )
             return {
                 "status": "SKIPPED",
                 "message": "No entities available for research",
                 "result_ids": [],
                 "duration": round(duration, 3),
             }
+
+        logger.info(
+            f"[ADK] Stage 5 PARALLEL_RESEARCH started (production_id={context.production_id}, "
+            f"entity_count={len(target_entities)}, mode={context.execution_mode})"
+        )
 
         # Select active research provider dynamically based on execution mode without polluting global settings
         import os
@@ -65,6 +73,11 @@ async def research_entities_tool(
         rights_holders_found = sum(1 for r in results if r.candidate_rights_holder)
 
         duration = time.perf_counter() - start_time
+        duration_ms = int(duration * 1000)
+        logger.info(
+            f"[ADK] Stage 5 PARALLEL_RESEARCH completed results={len(results)} rights_holders_found={rights_holders_found} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})"
+        )
         return {
             "status": "COMPLETED",
             "total_researched": len(results),
@@ -76,7 +89,12 @@ async def research_entities_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK ResearchTool] Research failed: {e}", exc_info=True)
+        duration_ms = int(duration * 1000)
+        logger.error(
+            f"[ADK] Stage 5 PARALLEL_RESEARCH failed: {e} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})",
+            exc_info=True,
+        )
         context.state.record_error(f"Research failed: {str(e)}")
         return {
             "status": "FAILED",

@@ -195,6 +195,8 @@ class RiskAssessmentAgent:
             )
             return []
 
+        total_count = len(entities)
+
         # 1. Sort by Priority (VISUAL_ONLY first, then BOTH, then SCRIPT_ONLY; then -confidence, then name)
         sorted_entities = sorted(
             entities,

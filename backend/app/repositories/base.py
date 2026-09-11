@@ -110,6 +110,9 @@ class EvidenceRepository(ABC):
     async def list_by_entity(self, entity_id: str) -> List[Evidence]:
         pass
 
+    async def save(self, evidence: Evidence) -> Evidence:
+        return await self.create(evidence)
+
 
 class RiskRepository(ABC):
     @abstractmethod

@@ -115,11 +115,16 @@ class VisualAgent:
             message="Ingesting video container stream headers...",
         )
 
+        logger.info(
+            f"[ADK] Stage 2 VIDEO_INGESTION started (production_id={production_id}, "
+            f"filename='{Path(resolved_path).name}', resolved_path='{resolved_path}')"
+        )
+
         try:
             metadata: VideoMetadata = video_service.inspect_video(resolved_path)
             results["metadata"] = metadata
         except (FileNotFoundError, VideoReadError, VideoDurationLimitExceededError) as e:
-            logger.error(f"[VisualAgent] Video ingestion failed: {e}")
+            logger.error(f"[ADK] Stage 2 VIDEO_INGESTION failed: {e}")
             await emit_callback(
                 job=job,
                 event_type=EventType.ANALYSIS_FAILED,
@@ -242,7 +247,7 @@ class VisualAgent:
         )
 
         # =========================================================================
-        # 4. Local OCR Processing
+        # 4. Local OCR Processing (Concurrent Frame Processing)
         # =========================================================================
         if is_cancelled():
             return results
@@ -252,39 +257,44 @@ class VisualAgent:
             event_type=EventType.OCR_STARTED,
             stage=PipelineStage.OCR,
             progress=round(base_prog, 1),
-            message="Running local OCR detection on candidate frames...",
+            message="Running fast concurrent local OCR on candidate frames...",
         )
 
-        ocr_map: Dict[str, List[OCRResult]] = {}
-        for idx, frame in enumerate(extracted_frames):
-            if is_cancelled():
-                return results
+        async def _process_single_frame_ocr(frame: ExtractedFrame):
             try:
-                ocr_hits = ocr_service.process_frame(frame.local_path, frame)
-                ocr_map[frame.frame_id] = ocr_hits
-                ocr_prog = base_prog + (w_ocr * ((idx + 1) / max(1, len(extracted_frames))))
-
-                if ocr_hits:
-                    top_hit = ocr_hits[0]
-                    await emit_callback(
-                        job=job,
-                        event_type=EventType.OCR_COMPLETED,
-                        stage=PipelineStage.OCR,
-                        progress=round(ocr_prog, 1),
-                        scene_number=frame.scene_number,
-                        video_timestamp=frame.video_timestamp,
-                        frame_path=storage_service.get_url(frame.local_path),
-                        confidence=top_hit.confidence,
-                        message=f"OCR detected text at {frame.video_timestamp}s: '{top_hit.text}' (conf: {top_hit.confidence:.2f})",
-                        metadata={
-                            "frame_id": frame.frame_id,
-                            "text_count": len(ocr_hits),
-                            "candidates": [r.text for r in ocr_hits],
-                            "bounding_boxes": [r.bounding_box for r in ocr_hits],
-                        },
-                    )
+                hits = await asyncio.to_thread(ocr_service.process_frame, frame.local_path, frame)
+                return frame, hits
             except Exception as e:
                 logger.warning(f"[VisualAgent] OCR_ERROR on frame {frame.frame_id}: {e}")
+                return frame, []
+
+        ocr_tasks = [_process_single_frame_ocr(f) for f in extracted_frames]
+        ocr_results_list = await asyncio.gather(*ocr_tasks)
+
+        ocr_map: Dict[str, List[OCRResult]] = {}
+        for idx, (frame, ocr_hits) in enumerate(ocr_results_list):
+            ocr_map[frame.frame_id] = ocr_hits
+            ocr_prog = base_prog + (w_ocr * ((idx + 1) / max(1, len(extracted_frames))))
+
+            if ocr_hits:
+                top_hit = ocr_hits[0]
+                await emit_callback(
+                    job=job,
+                    event_type=EventType.OCR_COMPLETED,
+                    stage=PipelineStage.OCR,
+                    progress=round(ocr_prog, 1),
+                    scene_number=frame.scene_number,
+                    video_timestamp=frame.video_timestamp,
+                    frame_path=storage_service.get_url(frame.local_path),
+                    confidence=top_hit.confidence,
+                    message=f"OCR detected text at {frame.video_timestamp}s: '{top_hit.text}' (conf: {top_hit.confidence:.2f})",
+                    metadata={
+                        "frame_id": frame.frame_id,
+                        "text_count": len(ocr_hits),
+                        "candidates": [r.text for r in ocr_hits],
+                        "bounding_boxes": [r.bounding_box for r in ocr_hits],
+                    },
+                )
 
         results["ocr_results"] = ocr_map
         base_prog += w_ocr
@@ -297,7 +307,7 @@ class VisualAgent:
         )
 
         # =========================================================================
-        # 5. Local Object Detection (YOLOv8n)
+        # 5. Local Object Detection (YOLOv8n Concurrent Processing)
         # =========================================================================
         if is_cancelled():
             return results
@@ -307,34 +317,39 @@ class VisualAgent:
             event_type=EventType.OBJECT_DETECTION_STARTED,
             stage=PipelineStage.OBJECT_DETECTION,
             progress=round(base_prog, 1),
-            message=f"Running local candidate object detection (YOLOv8n, threshold: {settings.YOLO_CONFIDENCE_THRESHOLD})...",
+            message=f"Running fast candidate object detection (YOLOv8n, threshold: {settings.YOLO_CONFIDENCE_THRESHOLD})...",
         )
 
-        obj_map: Dict[str, List[ObjectDetection]] = {}
-        for idx, frame in enumerate(extracted_frames):
-            if is_cancelled():
-                return results
+        async def _process_single_frame_yolo(frame: ExtractedFrame):
             try:
-                obj_hits = object_detection_service.detect_objects(frame.local_path, frame)
-                obj_map[frame.frame_id] = obj_hits
-                obj_prog = base_prog + (w_obj * ((idx + 1) / max(1, len(extracted_frames))))
-
-                for hit in obj_hits:
-                    if hit.confidence >= settings.YOLO_CONFIDENCE_THRESHOLD:
-                        await emit_callback(
-                            job=job,
-                            event_type=EventType.OBJECT_DETECTED,
-                            stage=PipelineStage.OBJECT_DETECTION,
-                            progress=round(obj_prog, 1),
-                            scene_number=frame.scene_number,
-                            video_timestamp=frame.video_timestamp,
-                            frame_path=storage_service.get_url(frame.local_path),
-                            confidence=hit.confidence,
-                            message=f"Detected object: {hit.label} ({int(hit.confidence*100)}% conf) at {frame.video_timestamp}s",
-                            metadata=hit.model_dump(),
-                        )
+                hits = await asyncio.to_thread(object_detection_service.detect_objects, frame.local_path, frame)
+                return frame, hits
             except Exception as e:
                 logger.warning(f"[VisualAgent] OBJECT_DETECTION_ERROR on frame {frame.frame_id}: {e}")
+                return frame, []
+
+        yolo_tasks = [_process_single_frame_yolo(f) for f in extracted_frames]
+        yolo_results_list = await asyncio.gather(*yolo_tasks)
+
+        obj_map: Dict[str, List[ObjectDetection]] = {}
+        for idx, (frame, obj_hits) in enumerate(yolo_results_list):
+            obj_map[frame.frame_id] = obj_hits
+            obj_prog = base_prog + (w_obj * ((idx + 1) / max(1, len(extracted_frames))))
+
+            for hit in obj_hits:
+                if hit.confidence >= settings.YOLO_CONFIDENCE_THRESHOLD:
+                    await emit_callback(
+                        job=job,
+                        event_type=EventType.OBJECT_DETECTED,
+                        stage=PipelineStage.OBJECT_DETECTION,
+                        progress=round(obj_prog, 1),
+                        scene_number=frame.scene_number,
+                        video_timestamp=frame.video_timestamp,
+                        frame_path=storage_service.get_url(frame.local_path),
+                        confidence=hit.confidence,
+                        message=f"Detected object: {hit.label} ({int(hit.confidence*100)}% conf) at {frame.video_timestamp}s",
+                        metadata=hit.model_dump(),
+                    )
 
         results["object_results"] = obj_map
         base_prog += w_obj
@@ -404,7 +419,7 @@ class VisualAgent:
         )
 
         raw_entities: List[Entity] = []
-        vision_semaphore = asyncio.Semaphore(3)
+        vision_semaphore = asyncio.Semaphore(5)
 
         async def _inspect_frame(idx: int, ranked: RankedFrame):
             if is_cancelled():
@@ -534,6 +549,11 @@ class VisualAgent:
 
         results["entities"] = canonical_entities
         job.entities_detected = len(canonical_entities)
+
+        logger.info(
+            f"[ADK] Stage 3 VISUAL_PERCEPTION completed detections={len(raw_entities)} "
+            f"canonical_entities={len(canonical_entities)} (ranked_frames={len(selected_vision_frames)})"
+        )
 
         # =========================================================================
         # 9. Screenplay Comparison (VISUAL-ONLY FINDINGS)

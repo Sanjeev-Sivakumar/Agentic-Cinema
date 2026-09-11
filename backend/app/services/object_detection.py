@@ -21,12 +21,14 @@ class ObjectDetectionService:
     def __init__(self, confidence_threshold: Optional[float] = None):
         self.threshold = confidence_threshold or getattr(settings, "YOLO_CONFIDENCE_THRESHOLD", 0.45)
         self._model = None
-        self._init_model()
+        self._initialized = False
 
-    def _init_model(self):
+    def _ensure_model(self):
+        if self._initialized:
+            return
+        self._initialized = True
         try:
             from ultralytics import YOLO
-            # Lightweight YOLOv8 nano model from workspace or local dir
             weights_paths = [
                 Path("yolov8n.pt"),
                 Path(__file__).resolve().parent.parent.parent / "yolov8n.pt",
@@ -45,8 +47,12 @@ class ObjectDetectionService:
         if not path.exists():
             return []
 
+        self._ensure_model()
         if self._model:
-            return self._detect_with_yolo(str(path), frame)
+            try:
+                return self._detect_with_yolo(str(path), frame)
+            except Exception as e:
+                logger.warning(f"[ObjectDetectionService] YOLO inference failed ({e}), falling back to OpenCV")
         return self._detect_with_opencv_fallback(str(path), frame)
 
     def _detect_with_yolo(self, img_path: str, frame: ExtractedFrame) -> List[ObjectDetection]:

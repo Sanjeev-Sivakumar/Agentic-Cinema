@@ -94,7 +94,6 @@ def _render_research_intelligence_card(item: dict) -> str:
 
     cache_badge_color = "verified" if "LIVE" in cache_status.upper() else ("visual_only" if "CACHE" in cache_status.upper() else "both")
 
-    # Render results rows/items
     if results:
         results_html = ""
         for idx, res in enumerate(results, 1):
@@ -175,12 +174,10 @@ def _render_research_intelligence_card(item: dict) -> str:
 def _render_exposure_card(exp: dict) -> str:
     ent_name = html.escape(exp.get("entity_name", "Unknown"))
     ent_id = html.escape(exp.get("entity_id", ""))
-    ent_type = html.escape(exp.get("entity_type", "brand"))
     status = html.escape(exp.get("status", "ESTIMATED"))
     currency = html.escape(exp.get("currency", "USD"))
     low = exp.get("estimated_low", 0.0)
     high = exp.get("estimated_high", 0.0)
-    conf = exp.get("confidence", 0.85)
     
     stat_dam = exp.get("statutory_damages") or {}
     lic_bench = exp.get("licensing_benchmark") or {}
@@ -198,7 +195,6 @@ def _render_exposure_card(exp: dict) -> str:
         badge_col = "high" if high >= 100000 else "medium"
         exposure_display = f'<span style="color: #f59e0b; font-size: 22px; font-weight: 700;">${low:,.0f} &ndash; ${high:,.0f} {currency}</span>'
 
-    # Cases HTML
     cases_html = ""
     if cases:
         for c in cases:
@@ -209,30 +205,28 @@ def _render_exposure_card(exp: dict) -> str:
             c_hold = html.escape(c.get("key_holding", ""))
             cases_html += f"""
             <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px 14px; margin-top: 6px; font-size: 12px;">
-              <div style="display: flex; justify-content: space-between; font-weight: 600; color: #f3f4f6;">
-                <span>{c_name} ({c_yr}) &bull; <code style="color: #9ca3af;">{c_cit}</code></span>
-                <span style="color: #f87171;">{c_settle}</span>
+              <div style="display: flex; justify-content: space-between; color: #f3f4f6; font-weight: 600;">
+                <div>{c_name} ({c_yr})</div>
+                <div style="color: #38bdf8;">{c_settle}</div>
               </div>
+              <div style="color: #9ca3af; font-family: monospace; font-size: 11px;">{c_cit}</div>
               <div style="color: #cbd5e1; margin-top: 4px;">{c_hold}</div>
             </div>
             """
     else:
-        cases_html = '<div style="color: #9ca3af; font-style: italic; font-size: 12px; margin-top: 4px;">No specific case precedents returned. Applied statutory baseline.</div>'
+        cases_html = '<div style="color: #9ca3af; font-size: 12px; font-style: italic; margin-top: 6px;">No specific published case law precedents referenced.</div>'
 
-    # Statutory details
-    statute_str = html.escape(stat_dam.get("statute", "15 U.S.C. § 1117 / 17 U.S.C. § 504"))
-    stat_min = stat_dam.get("min_damages", 750)
-    stat_max = stat_dam.get("max_damages", 30000)
-    stat_willful = stat_dam.get("willful_max_damages", 150000)
+    stat_min = stat_dam.get("statutory_minimum", 750)
+    stat_max = stat_dam.get("statutory_maximum_standard", 30000)
+    stat_willful = stat_dam.get("statutory_maximum_willful", 150000)
+    statute_str = html.escape(stat_dam.get("governing_statute", "17 U.S.C. § 504 / 15 U.S.C. § 1117"))
 
-    # Licensing details
-    lic_low = lic_bench.get("typical_fee_low", 2500)
-    lic_high = lic_bench.get("typical_fee_high", 15000)
-    lic_tier = html.escape(lic_bench.get("industry_tier", "Standard Commercial"))
+    lic_low = lic_bench.get("market_low", 2500)
+    lic_high = lic_bench.get("market_high", 15000)
+    lic_tier = html.escape(lic_bench.get("benchmark_tier", "Standard Commercial"))
 
-    # Remediation details
-    rem_est = rem_cost.get("estimated_cost", 1500)
-    rem_type = html.escape(rem_cost.get("remediation_type", "VFX Paintout"))
+    rem_est = rem_cost.get("estimated_vfx_cost_usd", 1200)
+    rem_type = html.escape(rem_cost.get("remediation_technique", "GAUSSIAN_BLUR"))
 
     return f"""
     <div style="background: #111827; border: 1px solid #1f2937; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px; margin-bottom: 18px;">
@@ -240,12 +234,12 @@ def _render_exposure_card(exp: dict) -> str:
         <div>
           <h3 style="font-size: 17px; font-weight: 700; color: #f9fafb;">{ent_name}</h3>
           <div style="font-size: 12px; color: #9ca3af; margin-top: 2px;">
-            Entity ID: <code style="color: #d1d5db;">{ent_id}</code> &bull; Type: <strong>{ent_type}</strong>
+            Entity ID: <code style="color: #d1d5db;">{ent_id}</code> &bull; Model: <strong>Evidence-Driven Operational Cost Exposure</strong>
           </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           {_badge(status, badge_col)}
-          {_badge(f"Confidence: {conf*100:.0f}%" if conf <= 1.0 else f"Confidence: {conf:.0f}%", "verified")}
+          {_badge("Operational Cost Exposure", "both")}
         </div>
       </div>
 
@@ -262,14 +256,14 @@ def _render_exposure_card(exp: dict) -> str:
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 12px;">
         <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 14px; font-size: 12.5px;">
-          <div style="font-weight: 600; color: #fbbf24; margin-bottom: 6px;">&#x2696;&#xFE0F; Statutory Reference Framework (Non-Predictive: {statute_str})</div>
+          <div style="font-weight: 600; color: #fbbf24; margin-bottom: 6px;">Statutory Reference Framework (Non-Predictive: {statute_str})</div>
           <div style="color: #9ca3af;">Statutory Min: <span style="color: #f3f4f6;">${stat_min:,.0f}</span></div>
           <div style="color: #9ca3af;">Statutory Max (Standard): <span style="color: #f3f4f6;">${stat_max:,.0f}</span></div>
           <div style="color: #9ca3af;">Willful Infringement Ceiling: <span style="color: #f87171; font-weight: 600;">${stat_willful:,.0f}</span></div>
           <div style="font-size: 10.5px; color: #6b7280; margin-top: 4px; font-style: italic;">Reference only &bull; Not a liability prediction.</div>
         </div>
         <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 14px; font-size: 12.5px;">
-          <div style="font-weight: 600; color: #38bdf8; margin-bottom: 6px;">&#x1F4CA; Operational Remediation vs. Settlement Analysis</div>
+          <div style="font-weight: 600; color: #38bdf8; margin-bottom: 6px;">Operational Remediation vs. Settlement Analysis</div>
           <div style="color: #cbd5e1; line-height: 1.4;">{notes if notes else 'Standard commercial rights licensing or VFX paintout replacement recommended.'}</div>
         </div>
       </div>
@@ -323,7 +317,7 @@ def _render_outreach_card(out: dict) -> str:
       <div style="background: #0b0f19; border: 1px solid #1e293b; border-left: 3px solid #10b981; border-radius: 6px; padding: 14px; font-family: monospace; font-size: 12px; color: #d1d5db; white-space: pre-wrap; line-height: 1.6; max-height: 250px; overflow-y: auto;">{body}</div>
 
       <div style="margin-top: 10px; font-size: 11.5px; color: #fbbf24; background: #451a0333; border: 1px solid #b4530944; border-radius: 4px; padding: 6px 10px;">
-        &#x26A0;&#xFE0F; <strong>Human Authorization Required:</strong> This clearance outreach letter has been generated as a draft only. Legal counsel or clearance coordinator approval is strictly mandatory before communication is dispatched.
+        <strong>Human Authorization Required:</strong> This clearance outreach letter has been generated as a draft only. Legal counsel or clearance coordinator approval is strictly mandatory before communication is dispatched.
       </div>
     </div>
     """
@@ -336,7 +330,6 @@ def _render_remediation_card(rem: dict) -> str:
     rem_path = html.escape(rem.get("proposed_frame_path", "") or rem.get("remediated_frame_path", ""))
     comp_path = html.escape(rem.get("comparison_frame_path", "") or "")
     comp_url = rem.get("comparison_frame_url") or rem.get("proposed_frame_url") or rem.get("remediated_frame_url")
-    conf = rem.get("confidence", 0.95)
     vfx_hours = rem.get("vfx_time_estimate_hours", 1.5)
     vfx_cost = rem.get("vfx_cost_estimate_usd", 1200.0)
     disclaimer = html.escape(rem.get("disclaimer", "") or rem.get("human_review_disclaimer", "PROPOSED REMEDIATION — HUMAN/EDITOR REVIEW REQUIRED. Original master footage is unaltered."))
@@ -364,7 +357,7 @@ def _render_remediation_card(rem: dict) -> str:
       </div>
 
       <div style="background: #31135e33; border: 1px solid #7c3aed44; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #ddd6fe; margin-bottom: 10px;">
-        &#x1F3A8; <strong>Studio Notice:</strong> {disclaimer}
+        <strong>Studio Notice:</strong> {disclaimer}
       </div>
 
       <div style="font-size: 12px; color: #9ca3af; line-height: 1.6;">
@@ -409,7 +402,7 @@ def render_html_report(report: ReportResult) -> str:
         visual_only_spotlight_html = f"""
     <div class="section-card" style="border-color: #6d28d9;">
       <div class="section-header">
-        <div class="section-title" style="color: #c4b5fd;">&#x1F50D; Visual-Only Exposure Spotlight ({len(report.visual_only_findings)})</div>
+        <div class="section-title" style="color: #c4b5fd;">Visual-Only Exposure Spotlight ({len(report.visual_only_findings)})</div>
         <span class="section-count" style="background: #4c1d95; color: #ddd6fe;">Highest Surprise Liability</span>
       </div>
       <div class="spotlight-banner">
@@ -434,6 +427,8 @@ def render_html_report(report: ReportResult) -> str:
       </div>
     </div>
     """
+
+    status_val = report.status.value if hasattr(report.status, 'value') else str(report.status)
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -508,15 +503,12 @@ def render_html_report(report: ReportResult) -> str:
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      color: #f59e0b;
       margin-bottom: 4px;
-      color: #fbbf24;
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }}
-    .grid-kpis {{
+    .kpi-grid {{
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }}
@@ -527,20 +519,20 @@ def render_html_report(report: ReportResult) -> str:
       padding: 20px;
     }}
     .kpi-label {{
-      font-size: 11.5px;
-      text-transform: uppercase;
-      font-weight: 600;
-      letter-spacing: 0.05em;
+      font-size: 12px;
       color: #9ca3af;
-      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
     }}
     .kpi-value {{
       font-size: 28px;
       font-weight: 700;
       color: #f9fafb;
+      margin-top: 6px;
     }}
     .kpi-subtext {{
-      font-size: 11px;
+      font-size: 12px;
       color: #6b7280;
       margin-top: 4px;
     }}
@@ -555,52 +547,52 @@ def render_html_report(report: ReportResult) -> str:
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #1f2937;
-      padding-bottom: 14px;
       margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1f2937;
     }}
     .section-title {{
       font-size: 18px;
-      font-weight: 600;
+      font-weight: 700;
       color: #f3f4f6;
     }}
     .section-count {{
       font-size: 12px;
       background: #1f2937;
       color: #9ca3af;
-      padding: 3px 10px;
+      padding: 4px 10px;
       border-radius: 9999px;
       font-weight: 600;
     }}
+    .spotlight-banner {{
+      background: #2e1065;
+      border-left: 4px solid #8b5cf6;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #e9d5ff;
+      margin-bottom: 16px;
+    }}
     .table-container {{
       overflow-x: auto;
-      border-radius: 6px;
-      border: 1px solid #1f2937;
     }}
     table {{
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 13px;
     }}
     th {{
-      background: #1f2937;
+      background: #181f2e;
       color: #9ca3af;
+      padding: 12px 16px;
       font-weight: 600;
-      font-size: 11.5px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      padding: 12px 16px;
       border-bottom: 1px solid #374151;
     }}
-    .spotlight-banner {{
-      background: linear-gradient(90deg, #31135e 0%, #1e1b4b 100%);
-      border: 1px solid #7c3aed55;
-      border-left: 6px solid #8b5cf6;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 18px;
-      font-size: 13px;
+    td {{
+      vertical-align: middle;
     }}
     .footer {{
       margin-top: 40px;
@@ -610,158 +602,41 @@ def render_html_report(report: ReportResult) -> str:
       color: #6b7280;
       display: flex;
       justify-content: space-between;
-      align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
-    }}
-    /* Report theme: editorial, print-friendly, and easy to scan. */
-    :root {{
-      --paper: #f5f3ee;
-      --surface: #fffdf9;
-      --ink: #17212b;
-      --muted: #68727b;
-      --line: #d9d6cf;
-      --navy: #18344a;
-      --amber: #b56a24;
-      --red: #a94336;
-      --green: #39745b;
-    }}
-    body {{
-      background: var(--paper) !important;
-      color: var(--ink) !important;
-      font-family: Arial, Helvetica, sans-serif !important;
-      font-size: 14px !important;
-      line-height: 1.55 !important;
-      padding: 42px 24px !important;
-    }}
-    .container {{ max-width: 1280px !important; }}
-    .header-card {{
-      background: var(--navy) !important;
-      border: 0 !important;
-      border-radius: 2px !important;
-      padding: 42px 46px !important;
-      margin-bottom: 18px !important;
-      box-shadow: none !important;
-    }}
-    .title-area h1 {{
-      color: #fffdf9 !important;
-      font-family: Georgia, 'Times New Roman', serif !important;
-      font-size: clamp(28px, 4vw, 48px) !important;
-      font-weight: 400 !important;
-      letter-spacing: 0 !important;
-      line-height: 1.08 !important;
-      max-width: 860px;
-    }}
-    .subtitle {{ color: #c8d2d8 !important; margin-top: 14px !important; }}
-    .subtitle span {{ color: #fffdf9 !important; }}
-    .status-badge {{
-      background: #e6efe8 !important;
-      color: var(--green) !important;
-      border: 0 !important;
-      border-radius: 2px !important;
-      padding: 8px 12px !important;
-    }}
-    .disclaimer-banner {{
-      background: #fff7e7 !important;
-      color: #604b35 !important;
-      border: 1px solid #e7cfaa !important;
-      border-left: 4px solid var(--amber) !important;
-      border-radius: 2px !important;
-      padding: 16px 20px !important;
-      margin-bottom: 18px !important;
-    }}
-    .disclaimer-title {{ color: var(--amber) !important; }}
-    .grid-kpis {{ gap: 10px !important; margin-bottom: 18px !important; }}
-    .kpi-card {{
-      background: var(--surface) !important;
-      border: 1px solid var(--line) !important;
-      border-left: 3px solid var(--navy) !important;
-      border-radius: 2px !important;
-      padding: 18px !important;
-    }}
-    .kpi-card[style*="8b5cf6"] {{ border-left-color: var(--amber) !important; }}
-    .kpi-card[style*="ef4444"] {{ border-left-color: var(--red) !important; }}
-    .kpi-label {{ color: var(--muted) !important; letter-spacing: .08em !important; }}
-    .kpi-value {{ color: var(--ink) !important; font-family: Georgia, 'Times New Roman', serif !important; font-size: 32px !important; }}
-    .kpi-value[style*="c4b5fd"] {{ color: var(--amber) !important; }}
-    .kpi-value[style*="f87171"] {{ color: var(--red) !important; }}
-    .kpi-subtext {{ color: var(--muted) !important; }}
-    .section-card {{
-      background: var(--surface) !important;
-      border: 1px solid var(--line) !important;
-      border-radius: 2px !important;
-      padding: 28px !important;
-      margin-bottom: 18px !important;
-      box-shadow: 0 1px 2px rgba(23, 33, 43, .04) !important;
-    }}
-    .section-card[style*="border-color"] {{ border-top: 3px solid var(--navy) !important; }}
-    .section-header {{ border-bottom: 1px solid var(--line) !important; padding-bottom: 12px !important; margin-bottom: 18px !important; }}
-    .section-title {{ color: var(--navy) !important; font-family: Georgia, 'Times New Roman', serif !important; font-size: 22px !important; font-weight: 400 !important; letter-spacing: 0 !important; }}
-    .section-count {{ background: #edf0f1 !important; color: var(--muted) !important; border-radius: 2px !important; }}
-    .table-container {{ border: 1px solid var(--line) !important; border-radius: 2px !important; }}
-    table {{ color: var(--ink) !important; font-size: 13px !important; }}
-    th {{ background: #edf0f1 !important; color: var(--navy) !important; border-bottom: 1px solid var(--line) !important; padding: 12px 14px !important; }}
-    td {{ border-color: var(--line) !important; }}
-    .spotlight-banner {{ background: #fff7e7 !important; border: 1px solid #e7cfaa !important; border-left: 4px solid var(--amber) !important; border-radius: 2px !important; color: #604b35 !important; }}
-    .footer {{ border-top-color: var(--line) !important; color: var(--muted) !important; }}
-    /* Normalize the legacy card fragments produced by the section renderers. */
-    [style*="background: #111827"], [style*="background: #0f172a"], [style*="background: #0b0f19"] {{ background: #f8f7f3 !important; color: var(--ink) !important; }}
-    [style*="border: 1px solid #1f2937"], [style*="border: 1px solid #1e293b"] {{ border-color: var(--line) !important; }}
-    [style*="color: #f9fafb"], [style*="color: #f3f4f6"], [style*="color: #e5e7eb"], [style*="color: #d1d5db"], [style*="color: #cbd5e1"] {{ color: var(--ink) !important; }}
-    [style*="color: #9ca3af"], [style*="color: #6b7280"] {{ color: var(--muted) !important; }}
-    [style*="color: #60a5fa"], [style*="color: #38bdf8"] {{ color: var(--navy) !important; }}
-    a {{ color: var(--navy) !important; }}
-    code {{ color: var(--navy) !important; background: #edf0f1 !important; }}
-    @media (max-width: 720px) {{
-      body {{ padding: 18px 12px !important; }}
-      .header-card {{ padding: 28px 24px !important; }}
-      .section-card {{ padding: 20px 16px !important; }}
-      .section-header {{ align-items: flex-start !important; flex-direction: column !important; gap: 8px !important; }}
-      .table-container {{ margin: 0 -2px; }}
-    }}
-    @media print {{
-      body {{ background: #fff !important; padding: 0 !important; }}
-      .section-card, .kpi-card {{ box-shadow: none !important; break-inside: avoid; }}
-      .header-card {{ print-color-adjust: exact; -webkit-print-color-adjust: exact; }}
+      gap: 10px;
     }}
   </style>
 </head>
 <body>
   <div class="container">
-    
-    <!-- Header -->
+
+    <!-- Header Card -->
     <div class="header-card">
       <div class="header-top">
         <div class="title-area">
-          <h1>{html.escape(report.title)}</h1>
-          <div class="subtitle">Production ID: <span style="font-family: monospace; color: #d1d5db;">{html.escape(report.production_id)}</span> &bull; Job ID: <span style="font-family: monospace; color: #d1d5db;">{html.escape(report.job_id)}</span> &bull; Generated: {generated_date_str}</div>
+          <h1>{html.escape(report.production_title or "Untitled Production")}</h1>
+          <div class="subtitle">
+            Production ID: <code style="color: #cbd5e1;">{html.escape(report.production_id)}</code> &bull; Job ID: <code style="color: #cbd5e1;">{html.escape(report.job_id)}</code> &bull; Generated: {generated_date_str}
+          </div>
         </div>
-        <div class="status-badge">{html.escape(report.status.value if hasattr(report.status, 'value') else str(report.status))}</div>
+        <div>
+          <span class="status-badge">{html.escape(status_val)}</span>
+        </div>
       </div>
     </div>
 
-    <!-- Mandatory Non-Legal Disclaimer -->
+    <!-- Legal Disclaimer Banner -->
     <div class="disclaimer-banner">
-      <div class="disclaimer-title">&#x26A0;&#xFE0F; Non-Legal Advice Notice</div>
-      {html.escape(report.disclaimer)}
+      <div class="disclaimer-title">Notice & Confidentiality Disclaimer (Non-Legal Advice Notice)</div>
+      <div>{html.escape(report.disclaimer)}</div>
     </div>
 
-    <!-- Executive KPI Grid -->
-    <div class="grid-kpis">
+    <!-- KPI Summary Cards -->
+    <div class="kpi-grid">
       <div class="kpi-card">
-        <div class="kpi-label">Total Entities</div>
+        <div class="kpi-label">Total Entities Detected</div>
         <div class="kpi-value">{report.total_entities}</div>
-        <div class="kpi-subtext">Screenplay + Video footage</div>
-      </div>
-      <div class="kpi-card" style="border-left: 3px solid #8b5cf6;">
-        <div class="kpi-label">Visual-Only Spotlight</div>
-        <div class="kpi-value" style="color: #c4b5fd;">{vis_count}</div>
-        <div class="kpi-subtext">Unscripted on-camera exposure</div>
-      </div>
-      <div class="kpi-card" style="border-left: 3px solid #ef4444;">
-        <div class="kpi-label">High Risk Entities</div>
-        <div class="kpi-value" style="color: #f87171;">{high_risk_count}</div>
-        <div class="kpi-subtext">Immediate clearance required</div>
+        <div class="kpi-subtext">{len(report.visual_only_findings)} Visual-Only &bull; {len(report.priority_findings)} High Priority</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Research Evidence Coverage</div>
@@ -771,12 +646,12 @@ def render_html_report(report: ReportResult) -> str:
       <div class="kpi-card">
         <div class="kpi-label">Verification Coverage</div>
         <div class="kpi-value">{report.verification_coverage * 100:.1f}%</div>
-        <div class="kpi-subtext">{report.verified_count} verified ({contradicted_count} contradictions)</div>
+        <div class="kpi-subtext">{report.verified_count} verified ({report.verification_distribution.get('CONTRADICTED', 0)} contradictions)</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Resolution Coverage</div>
         <div class="kpi-value">{report.resolution_coverage * 100:.1f}%</div>
-        <div class="kpi-subtext">{license_req_count} licenses &bull; {remove_count} removals</div>
+        <div class="kpi-subtext">{report.resolution_distribution.get('LICENSE_REQUIRED', 0)} licenses &bull; {report.resolution_distribution.get('REMOVE_OR_REPLACE', 0)} removals</div>
       </div>
     </div>
 
@@ -794,7 +669,7 @@ def render_html_report(report: ReportResult) -> str:
     <!-- PARALLEL RESEARCH INTELLIGENCE SECTION -->
     <div class="section-card" style="border-color: #2563eb;">
       <div class="section-header">
-        <div class="section-title" style="color: #93c5fd;">&#x1F310; PARALLEL RESEARCH INTELLIGENCE & RIGHTS-HOLDER EVIDENCE</div>
+        <div class="section-title" style="color: #93c5fd;">PARALLEL RESEARCH INTELLIGENCE & RIGHTS-HOLDER EVIDENCE</div>
         <span class="section-count" style="background: #1e3a8a; color: #bfdbfe;">Parallel Search API &bull; {len(research_intel_items)} Entities Analyzed</span>
       </div>
       <p style="color: #9ca3af; font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
@@ -803,17 +678,17 @@ def render_html_report(report: ReportResult) -> str:
       {research_cards_html if research_cards_html else '<div style="color: #9ca3af; padding: 20px; text-align: center;">No research intelligence records available.</div>'}
     </div>
 
-    <!-- FINANCIAL EXPOSURE INTELLIGENCE SECTION (PHASE 10) -->
+    <!-- FINANCIAL EXPOSURE INTELLIGENCE SECTION -->
     <div class="section-card" style="border-color: #d97706;">
       <div class="section-header">
-        <div class="section-title" style="color: #fbbf24;">&#x1F4B0; FINANCIAL EXPOSURE INTELLIGENCE & STATUTORY REFERENCE FRAMEWORK</div>
+        <div class="section-title" style="color: #fbbf24;">FINANCIAL EXPOSURE INTELLIGENCE & STATUTORY REFERENCE FRAMEWORK</div>
         <span class="section-count" style="background: #451a03; color: #fde68a;">Phase 10 &bull; {len(exposure_items)} Entities Quantified</span>
       </div>
       <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; font-size: 12.5px; color: #cbd5e1; line-height: 1.5;">
         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-          <div><strong style="color: #f59e0b;">&#x1F4CA; Risk Score:</strong> How urgently the production should investigate the issue.</div>
-          <div><strong style="color: #38bdf8;">&#x1F4B5; Financial Exposure:</strong> Evidence-backed operational estimate of potential cost / licensing / business exposure.</div>
-          <div><strong style="color: #a78bfa;">&#x2696;&#xFE0F; Statutory Framework:</strong> Legal reference only (17 U.S.C. § 504 / 15 U.S.C. § 1117), <em>NOT</em> a prediction of court liability.</div>
+          <div><strong style="color: #f59e0b;">Risk Score:</strong> How urgently the production should investigate the issue.</div>
+          <div><strong style="color: #38bdf8;">Financial Exposure:</strong> Evidence-backed operational estimate of potential cost / licensing / business exposure.</div>
+          <div><strong style="color: #a78bfa;">Statutory Framework:</strong> Legal reference only (17 U.S.C. § 504 / 15 U.S.C. § 1117), <em>NOT</em> a prediction of court liability.</div>
         </div>
       </div>
       <p style="color: #9ca3af; font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
@@ -822,10 +697,10 @@ def render_html_report(report: ReportResult) -> str:
       {exposure_cards_html if exposure_cards_html else '<div style="color: #9ca3af; padding: 20px; text-align: center;">No financial exposure models generated.</div>'}
     </div>
 
-    <!-- CLEARANCE OUTREACH PACKAGES SECTION (PHASE 11) -->
+    <!-- CLEARANCE OUTREACH PACKAGES SECTION -->
     <div class="section-card" style="border-color: #059669;">
       <div class="section-header">
-        <div class="section-title" style="color: #34d399;">&#x2709;&#xFE0F; CLEARANCE OUTREACH & PERMISSION PACKAGES</div>
+        <div class="section-title" style="color: #34d399;">CLEARANCE OUTREACH & PERMISSION PACKAGES</div>
         <span class="section-count" style="background: #064e3b; color: #a7f3d0;">Phase 11 &bull; {len(outreach_items)} Drafts Generated (Gmail Drafts)</span>
       </div>
       <p style="color: #9ca3af; font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
@@ -834,10 +709,10 @@ def render_html_report(report: ReportResult) -> str:
       {outreach_cards_html if outreach_cards_html else '<div style="color: #9ca3af; padding: 20px; text-align: center;">No clearance outreach drafts generated.</div>'}
     </div>
 
-    <!-- VISUAL REMEDIATION STUDIO SECTION (PHASE 12) -->
+    <!-- VISUAL REMEDIATION STUDIO SECTION -->
     <div class="section-card" style="border-color: #7c3aed;">
       <div class="section-header">
-        <div class="section-title" style="color: #c4b5fd;">&#x1F3A8; VISUAL REMEDIATION STUDIO & OPTICAL CLEANUPS</div>
+        <div class="section-title" style="color: #c4b5fd;">VISUAL REMEDIATION STUDIO & OPTICAL CLEANUPS</div>
         <span class="section-count" style="background: #3b0764; color: #e9d5ff;">Phase 12 &bull; {len(remediation_items)} Proposed Remediations</span>
       </div>
       <p style="color: #9ca3af; font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
@@ -852,7 +727,7 @@ def render_html_report(report: ReportResult) -> str:
     <!-- Priority Clearance Findings -->
     <div class="section-card">
       <div class="section-header">
-        <div class="section-title">&#x1F6A8; Priority Clearance Action Items</div>
+        <div class="section-title">Priority Clearance Action Items</div>
         <span class="section-count">{len(report.priority_findings)} Items Requiring Action</span>
       </div>
       <div class="table-container">

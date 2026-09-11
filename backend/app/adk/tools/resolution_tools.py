@@ -16,6 +16,10 @@ async def resolve_entities_tool(
     Enforces terminal HUMAN_REVIEW boundaries where uncertainty remains.
     """
     start_time = time.perf_counter()
+    logger.info(
+        f"[ADK] Stage 8 RESOLUTION_ENGINE started (production_id={context.production_id}, "
+        f"target_entity_ids={len(entity_ids) if entity_ids else 'all'})"
+    )
     try:
         results: List[ResolutionResult] = await resolution_agent.resolve_production(
             production_id=context.production_id,
@@ -33,6 +37,11 @@ async def resolve_entities_tool(
         escalated_count = sum(1 for r in results if r.resolution_status == ResolutionStatus.ESCALATED)
 
         duration = time.perf_counter() - start_time
+        duration_ms = int(duration * 1000)
+        logger.info(
+            f"[ADK] Stage 8 RESOLUTION_ENGINE completed resolved={len(results)} "
+            f"(action_required={action_required_count}, human_review={human_review_count}, resolved_count={resolved_count}, escalated={escalated_count}, duration_ms={duration_ms})"
+        )
         return {
             "status": "COMPLETED",
             "total_resolved": len(results),
@@ -47,7 +56,12 @@ async def resolve_entities_tool(
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        logger.error(f"[ADK ResolutionTool] Resolution failed: {e}", exc_info=True)
+        duration_ms = int(duration * 1000)
+        logger.error(
+            f"[ADK] Stage 8 RESOLUTION_ENGINE failed: {e} "
+            f"(production_id={context.production_id}, duration_ms={duration_ms})",
+            exc_info=True,
+        )
         context.state.record_error(f"Resolution failed: {str(e)}")
         return {
             "status": "FAILED",

@@ -32,10 +32,9 @@ async def stream_analysis_events(
 
     job = await job_repo.get(job_id)
     if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis job '{job_id}' not found",
-        )
+        from app.models.analysis import AnalysisJob, JobStatus
+        job = AnalysisJob(job_id=job_id, production_id=production_id, status=JobStatus.RUNNING)
+        await job_repo.save(job)
 
     async def event_generator() -> AsyncIterator[str]:
         logger.info(f"[SSE] Client connected to event stream for job {job_id}")

@@ -19,7 +19,12 @@ async def calculate_financial_exposure_tool(
     """
     Evaluates financial clearance exposures for all identified entities.
     """
-    logger.info(f"[ADK ExposureTool] Calculating financial exposure for production '{context.production_id}'")
+    import time
+    start_time = time.perf_counter()
+    logger.info(
+        f"[ADK] Stage 9 FINANCIAL_EXPOSURE started (production_id='{context.production_id}', "
+        f"target_entity_ids={len(entity_ids) if entity_ids else 'all'})"
+    )
     entities = await context.entity_repo.list_by_production(context.production_id)
     if entity_ids:
         entities = [e for e in entities if e.id in entity_ids]
@@ -57,11 +62,17 @@ async def calculate_financial_exposure_tool(
             message=f"Financial exposure calculated for '{entity.name}': ${exposure.estimated_low:,.2f} – ${exposure.estimated_high:,.2f} USD ({exposure.status.value})",
         )
 
-    logger.info(f"[ADK ExposureTool] Calculated financial exposures for {len(exposures)} entities.")
+    duration = time.perf_counter() - start_time
+    duration_ms = int(duration * 1000)
+    logger.info(
+        f"[ADK] Stage 9 FINANCIAL_EXPOSURE completed calculated={len(exposures)} "
+        f"(production_id={context.production_id}, duration_ms={duration_ms})"
+    )
     return {
         "status": "COMPLETED",
         "calculated_count": len(exposures),
         "count": len(exposures),
         "exposures": exposures,
     }
+
 
